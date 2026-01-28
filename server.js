@@ -34,7 +34,8 @@ const allowedOrigins = [
   
   "https://technova-hub-dynamic-website.vercel.app",
   "https://www.technovahub.in",
-  "https://technovahub-solution-is6vunddi-technovas-projects-37226de2.vercel.app/"
+  "https://technovahub-solution-is6vunddi-technovas-projects-37226de2.vercel.app/",
+  "technovahubfrontend-fldvp0knz-technovaservices-projects.vercel.app"
 
 ];
 
