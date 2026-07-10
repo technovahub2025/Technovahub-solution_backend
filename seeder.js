@@ -16,14 +16,14 @@ const seedAdmin = async () => {
   try {
     await connectDB(); // wait for DB to connect
 
-    const existing = await Admin.findOne({ userName: "admin" });
+    const existing = await Admin.findOne({ userName: "admintech" });
     if (existing) {
       console.log("Admin already exists");
       process.exit();
     }
 
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash("admin123", salt);
+    const hashedPassword = await bcrypt.hash("admintech@123", salt);
 
     const admin = new Admin({
       userName: "admin",
