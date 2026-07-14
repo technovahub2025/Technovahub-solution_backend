@@ -53,31 +53,49 @@ export const registerAdmin = async (req, res) => {
 
 export const loginAdmin = async (req, res) => {
   try {
+    console.log("Request Body:", req.body);
+
     const { userName, password } = req.body;
+
+    console.log("Username:", userName);
+    console.log("Password:", password);
+
     const admin = await Admin.findOne({ userName });
-    if (!admin) return res.status(401).json({ message: "Invalid username or password" });
 
-    const isMatch = await admin.matchPassword(password);
-    if (!isMatch) return res.status(401).json({ message: "Invalid username or password" });
+    console.log("Admin Found:", admin);
 
-    // Generate JWT token
-    const token = jwt.sign({ id: admin._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
+    if (!admin) {
+      return res.status(401).json({
+        message: "Invalid username or password"
+      });
+    }
 
-    // Set token in cookie
-    res.cookie("token", token, {
-      httpOnly: true,   // prevents JS access to cookie (security)
-      secure: process.env.NODE_ENV === "production", // send only on HTTPS
-      maxAge: 24 * 60 * 60 * 1000, // 1 day
-      sameSite: "strict",
-    });
+    const isMatch = await bcrypt.compare(password, admin.password);
+
+    console.log("Password Match:", isMatch);
+
+    if (!isMatch) {
+      return res.status(401).json({
+        message: "Invalid username or password"
+      });
+    }
+
+    const token = jwt.sign(
+      { id: admin._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
 
     res.status(200).json({
       success: true,
-      message: "Logged in successfully",
       token,
-      user: { userName }
+      user: {
+        userName: admin.userName,
+      },
     });
+
   } catch (err) {
+    console.log(err);
     res.status(500).json({ message: err.message });
   }
 };
