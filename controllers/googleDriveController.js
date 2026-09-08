@@ -6,6 +6,7 @@ const getFrontendUrl = () =>
 
 export const connectGoogleDrive = (req, res) => {
   if (!req.admin?._id) {
+    console.warn("[google-drive] Connect rejected: authenticated admin was not found");
     return res.status(401).json({ success: false, message: "Not authorized" });
   }
 
@@ -15,6 +16,7 @@ export const connectGoogleDrive = (req, res) => {
     { expiresIn: "10m" }
   );
   const authUrl = getGoogleDriveAuthorizationUrl(state);
+  console.log(`[google-drive] Authorization URL generated for admin=${req.admin._id}`);
 
   return res.json({
     success: true,
@@ -26,13 +28,20 @@ export const connectGoogleDrive = (req, res) => {
 export const googleDriveCallback = async (req, res) => {
   try {
     const { code, state, error } = req.query;
+    console.log(
+      `[google-drive] Callback received: code=${Boolean(code)} state=${Boolean(state)} error=${
+        error || "none"
+      }`
+    );
     if (error) throw new Error(`Google authorization failed: ${error}`);
     if (!code || !state) throw new Error("Missing Google authorization code or state");
 
     jwt.verify(state, process.env.JWT_SECRET);
-    await exchangeGoogleDriveCode(code);
+    const tokens = await exchangeGoogleDriveCode(code);
+    console.log(`[google-drive] OAuth exchange completed; refreshToken=${Boolean(tokens.refresh_token)}`);
     res.redirect(`${getFrontendUrl()}/admin/gallery?googleDrive=connected`);
   } catch (error) {
+    console.error(`[google-drive] Callback failed: ${error.message}`);
     const message = encodeURIComponent(error.message || "Google Drive connection failed");
     res.redirect(`${getFrontendUrl()}/admin/gallery?googleDrive=error&message=${message}`);
   }

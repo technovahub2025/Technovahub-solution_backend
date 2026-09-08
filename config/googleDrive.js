@@ -17,6 +17,8 @@ if (!clientId || !clientSecret || !redirectUri) {
   );
 }
 
+console.log(`[google-drive] OAuth config loaded: redirectUri=${redirectUri}`);
+
 const scopes = ["https://www.googleapis.com/auth/drive.file"];
 
 const createOAuthClient = () => new google.auth.OAuth2(clientId, clientSecret, redirectUri);
@@ -73,6 +75,7 @@ export const saveGoogleDriveRefreshToken = async (refreshToken) => {
     { encryptedRefreshToken: encrypt(refreshToken) },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
+  console.log("[google-drive] Refresh token encrypted and stored");
 };
 
 const getRefreshToken = async () => {

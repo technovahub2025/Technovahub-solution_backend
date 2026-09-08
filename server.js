@@ -26,6 +26,20 @@ if (process.env.NODE_ENV === "production") {
 
 const app = express();
 
+// Render logs this request lifecycle, which makes route and status mismatches visible.
+app.use((req, res, next) => {
+  const startedAt = Date.now();
+  console.log(`[request] ${req.method} ${req.originalUrl}`);
+
+  res.on("finish", () => {
+    console.log(
+      `[response] ${req.method} ${req.originalUrl} ${res.statusCode} ${Date.now() - startedAt}ms`
+    );
+  });
+
+  next();
+});
+
 // Allowed frontend URLs
 const allowedOrigins = [
   "http://localhost:5174",
@@ -74,12 +88,19 @@ connectDB();
 app.use("/api/gallery", galleryRoutes);
 app.use("/api/courses", courseRoutes);
 app.use("/api/auth", authRoutes);
+console.log("[startup] Auth routes mounted at /api/auth");
 app.use("/api/certificate", certificateRoutes);
 app.use("/api/softwareSolution", softwareRoutes);
 app.use("/api/quatation", quatation);
 app.use("/api/invoice", invoice);
 app.use("/api/arouninvoice", Arinvoice);
 app.use("/api/salary", salaryRoutes);
+
+// Keep unmatched API requests visible in Render logs.
+app.use((req, res, next) => {
+  console.warn(`[404] No route matched ${req.method} ${req.originalUrl}`);
+  res.status(404).json({ success: false, message: "Route not found" });
+});
 
 
 
@@ -94,5 +115,13 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on PORT ${PORT}`);
+  console.log(`[startup] Server running on PORT ${PORT}`);
+  console.log(`[startup] NODE_ENV=${process.env.NODE_ENV || "development"}`);
+  console.log(`[startup] Google OAuth configuration: ${
+    (process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_DRIVE_CLIENT_ID) &&
+    (process.env.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_DRIVE_CLIENT_SECRET) &&
+    (process.env.GOOGLE_REDIRECT_URI || process.env.GOOGLE_DRIVE_REDIRECT_URI)
+      ? "configured"
+      : "missing GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, or GOOGLE_REDIRECT_URI"
+  }`);
 });
