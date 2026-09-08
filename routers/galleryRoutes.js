@@ -7,14 +7,14 @@ import {
   deleteImage,
 } from "../controllers/galleryController.js";
 import upload from "../middleware/multer.js";
-// import { protect } from "../middleware/authMiddleware.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 // Upload multiple (max 10)
-router.post("/", upload.array("images", 10), uploadImages);
+router.post("/", protect, upload.array("images", 10), uploadImages);
 router.get("/", getImages);
 router.get("/:id", getImage);
-router.delete("/:id", deleteImage);
+router.delete("/:id", protect, deleteImage);
 
 export default router;

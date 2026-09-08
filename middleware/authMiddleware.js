@@ -4,7 +4,10 @@ import Admin from "../models/adminModel.js";
 
 export const protect = async (req, res, next) => {
   try {
-    const token = req.cookies.token;
+    const bearerToken = req.headers.authorization?.startsWith("Bearer ")
+      ? req.headers.authorization.slice(7)
+      : null;
+    const token = req.cookies.token || bearerToken;
     if (!token) return res.status(401).json({ message: "Not authorized, no token" });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);

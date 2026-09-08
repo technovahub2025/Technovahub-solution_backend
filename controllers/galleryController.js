@@ -1,39 +1,54 @@
-// controllers/galleryController.js
+import { Readable } from "stream";
 import cloudinary from "../config/cloudinary.js";
+import { getDriveClient } from "../config/googleDrive.js";
 import Gallery from "../models/GalleryModels.js";
-import streamifier from "streamifier";
 
+const uploadToGoogleDrive = async (file) => {
+  const drive = await getDriveClient();
+  const fileName = `${Date.now()}-${file.originalname || "image"}`;
+  const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
-
-// Helper: upload buffer to Cloudinary
-const uploadToCloudinary = (fileBuffer) => {
-  return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      { folder: "gallery" }, // optional: all images inside "gallery" folder
-      (error, result) => {
-        if (result) resolve(result);
-        else reject(error);
-      }
-    );
-    streamifier.createReadStream(fileBuffer).pipe(stream);
+  const createResponse = await drive.files.create({
+    requestBody: {
+      name: fileName,
+      ...(folderId ? { parents: [folderId] } : {}),
+    },
+    media: {
+      mimeType: file.mimetype,
+      body: Readable.from(file.buffer),
+    },
+    fields: "id,webViewLink",
+    supportsAllDrives: true,
   });
+
+  const driveFileId = createResponse.data.id;
+
+  await drive.permissions.create({
+    fileId: driveFileId,
+    requestBody: { role: "reader", type: "anyone" },
+    supportsAllDrives: true,
+  });
+
+  return {
+    driveFileId,
+    imageUrl: `https://drive.google.com/uc?export=view&id=${driveFileId}`,
+  };
 };
 
-// 📌 UPLOAD MULTIPLE IMAGES
 export const uploadImages = async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: "Images are required" });
     }
 
-    // Upload all images to Cloudinary
-    const uploadPromises = req.files.map(file => uploadToCloudinary(file.buffer));
-    const results = await Promise.all(uploadPromises);
+    const results = await Promise.all(
+      req.files.map((file) => uploadToGoogleDrive(file))
+    );
 
-    // Save URLs to DB
-    const galleryItems = results.map(result => ({
-      imageUrl: result.secure_url,
-      publicId: result.public_id, // useful for deletion
+    const galleryItems = results.map((result) => ({
+      imageUrl: result.imageUrl,
+      driveFileId: result.driveFileId,
+      storageProvider: "google-drive",
     }));
 
     const savedImages = await Gallery.insertMany(galleryItems);
@@ -43,7 +58,6 @@ export const uploadImages = async (req, res) => {
   }
 };
 
-// 📌 GET ALL IMAGES
 export const getImages = async (req, res) => {
   try {
     const images = await Gallery.find().sort({ createdAt: -1 });
@@ -53,7 +67,6 @@ export const getImages = async (req, res) => {
   }
 };
 
-// 📌 GET SINGLE IMAGE
 export const getImage = async (req, res) => {
   try {
     const image = await Gallery.findById(req.params.id);
@@ -64,18 +77,22 @@ export const getImage = async (req, res) => {
   }
 };
 
-// 📌 DELETE IMAGE (from DB + Cloudinary)
 export const deleteImage = async (req, res) => {
   try {
     const image = await Gallery.findById(req.params.id);
     if (!image) return res.status(404).json({ message: "Image not found" });
 
-    // Delete from Cloudinary
-    await cloudinary.uploader.destroy(image.publicId);
+    if (image.driveFileId) {
+      const drive = await getDriveClient();
+      await drive.files.delete({
+        fileId: image.driveFileId,
+        supportsAllDrives: true,
+      });
+    } else if (image.publicId) {
+      await cloudinary.uploader.destroy(image.publicId);
+    }
 
-    // Delete from DB
     await Gallery.findByIdAndDelete(req.params.id);
-
     res.json({ message: "Image deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });
