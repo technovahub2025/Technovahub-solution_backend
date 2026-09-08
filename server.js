@@ -7,15 +7,13 @@ import cookieParser from "cookie-parser";
 // Routers
 import galleryRoutes from "./routers/galleryRoutes.js";
 import courseRoutes from "./routers/courseRoutes.js";
-import authRoutes from "./routers/authRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 import certificateRoutes from "./routers/certificateRoutes.js";
 import softwareRoutes from "./routers/softwareRoutes.js";
 import quatation from "./routers/quoatitionRoutes.js"
 import invoice from "./routers/invoiceRoutes.js"
 import Arinvoice from "./routers/arounInvoiceRoutes.js"
 import salaryRoutes from "./routers/salaryRoutes.js";
-import { protect } from "./middleware/authMiddleware.js";
-import { connectGoogleDrive, googleDriveCallback } from "./controllers/googleDriveController.js";
 
 
 
@@ -73,14 +71,6 @@ app.get("/", (req, res) => {
 connectDB();
 
 // Routes
-// Keep the Google Drive endpoints mounted here as well as inside the auth router.
-// This makes the /api/auth/google-drive/* paths resilient if the router mount
-// order or deployment build ever drifts from the local source tree.
-app.get("/api/auth/google-drive/connect", protect, connectGoogleDrive);
-app.get("/api/auth/google-drive/callback", googleDriveCallback);
-app.get("/api/google-drive/connect", protect, connectGoogleDrive);
-app.get("/api/google-drive/callback", googleDriveCallback);
-
 app.use("/api/gallery", galleryRoutes);
 app.use("/api/courses", courseRoutes);
 app.use("/api/auth", authRoutes);

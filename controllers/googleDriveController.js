@@ -5,8 +5,22 @@ const getFrontendUrl = () =>
   (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
 
 export const connectGoogleDrive = (req, res) => {
-  const state = jwt.sign({ adminId: req.admin._id.toString() }, process.env.JWT_SECRET, { expiresIn: "10m" });
-  res.json({ authorizationUrl: getGoogleDriveAuthorizationUrl(state) });
+  if (!req.admin?._id) {
+    return res.status(401).json({ success: false, message: "Not authorized" });
+  }
+
+  const state = jwt.sign(
+    { adminId: req.admin._id.toString() },
+    process.env.JWT_SECRET,
+    { expiresIn: "10m" }
+  );
+  const authUrl = getGoogleDriveAuthorizationUrl(state);
+
+  return res.json({
+    success: true,
+    authUrl,
+    authorizationUrl: authUrl,
+  });
 };
 
 export const googleDriveCallback = async (req, res) => {
@@ -14,6 +28,7 @@ export const googleDriveCallback = async (req, res) => {
     const { code, state, error } = req.query;
     if (error) throw new Error(`Google authorization failed: ${error}`);
     if (!code || !state) throw new Error("Missing Google authorization code or state");
+
     jwt.verify(state, process.env.JWT_SECRET);
     await exchangeGoogleDriveCode(code);
     res.redirect(`${getFrontendUrl()}/admin/gallery?googleDrive=connected`);
