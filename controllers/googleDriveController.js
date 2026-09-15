@@ -12,12 +12,12 @@ export const connectGoogleDrive = (req, res) => {
 
   try {
     const state = jwt.sign(
-    { adminId: req.admin._id.toString() },
-    process.env.JWT_SECRET,
-    { expiresIn: "10m" }
-  );
-  const authUrl = getGoogleDriveAuthorizationUrl(state);
-  console.log(`[google-drive] Authorization URL generated for admin=${req.admin._id}`);
+      { adminId: req.admin._id.toString() },
+      process.env.JWT_SECRET,
+      { expiresIn: "10m" }
+    );
+    const authUrl = getGoogleDriveAuthorizationUrl(state);
+    console.log(`[google-drive] Authorization URL generated for admin=${req.admin._id}`);
 
     return res.json({
       success: true,
