@@ -8,6 +8,8 @@ let server;
 let baseUrl;
 let Admin;
 let originalFindById;
+let GoogleDriveToken;
+let saveGoogleDriveRefreshToken;
 const oauthKeys = [
   "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI",
   "GOOGLE_DRIVE_CLIENT_ID", "GOOGLE_DRIVE_CLIENT_SECRET", "GOOGLE_DRIVE_REDIRECT_URI",
@@ -18,6 +20,8 @@ before(async () => {
   // Importing routers must succeed even on a backend without OAuth configuration.
   for (const key of oauthKeys) delete process.env[key];
   const { default: router } = await import("../routes/authRoutes.js");
+  ({ default: GoogleDriveToken } = await import("../models/GoogleDriveToken.js"));
+  ({ saveGoogleDriveRefreshToken } = await import("../config/googleDrive.js"));
   for (const key of oauthKeys) delete process.env[key];
   process.env.JWT_SECRET = "test-only-secret";
   ({ default: Admin } = await import("../models/adminModel.js"));
@@ -34,7 +38,7 @@ before(async () => {
 
 after(async () => {
   if (Admin) Admin.findById = originalFindById;
-  for (const key of [...oauthKeys, "JWT_SECRET"]) {
+  for (const key of [...oauthKeys, "JWT_SECRET", "GOOGLE_REFRESH_TOKEN"]) {
     if (originalEnv[key] === undefined) delete process.env[key];
     else process.env[key] = originalEnv[key];
   }
@@ -78,4 +82,59 @@ test("callback route handles missing OAuth parameters", async () => {
   const response = await fetch(`${baseUrl}/callback`, { redirect: "manual" });
   assert.equal(response.status, 302);
   assert.equal(new URL(response.headers.get("location")).searchParams.get("googleDrive"), "error");
+});
+
+const status = () => fetch(`${baseUrl}/status`, {
+  headers: { Authorization: `Bearer ${jwt.sign({ id: "test-admin" }, process.env.JWT_SECRET)}` },
+});
+
+test("status route requires authentication", async () => {
+  const response = await fetch(`${baseUrl}/status`);
+  assert.equal(response.status, 401);
+});
+
+test("status reports disconnected when no refresh token is stored", async (t) => {
+  delete process.env.GOOGLE_REFRESH_TOKEN;
+  t.mock.method(GoogleDriveToken, "findOne", async () => null);
+  const response = await status();
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await response.json(), { success: true, configured: true, connected: false });
+});
+
+test("status recognizes an environment token without returning credentials", async (t) => {
+  process.env.GOOGLE_REFRESH_TOKEN = "private-test-token";
+  t.mock.method(GoogleDriveToken, "findOne", () => { throw new Error("Unexpected database lookup"); });
+  const response = await status();
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { success: true, configured: true, connected: true });
+  delete process.env.GOOGLE_REFRESH_TOKEN;
+});
+
+test("status recognizes an encrypted token stored after OAuth", async (t) => {
+  let stored;
+  t.mock.method(GoogleDriveToken, "findOneAndUpdate", async (filter, update) => { stored = update; });
+  t.mock.method(GoogleDriveToken, "findOne", async () => stored);
+  await saveGoogleDriveRefreshToken("private-database-token");
+  const response = await status();
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { success: true, configured: true, connected: true });
+});
+
+test("status returns a JSON error when token storage is unavailable", async (t) => {
+  t.mock.method(GoogleDriveToken, "findOne", async () => { throw new Error("private database error"); });
+  const response = await status();
+  assert.equal(response.status, 500);
+  assert.deepEqual(await response.json(), { success: false, message: "Unable to check Google Drive connection" });
+});
+
+test("status reports missing configuration without querying token storage", async (t) => {
+  for (const key of oauthKeys) delete process.env[key];
+  t.mock.method(GoogleDriveToken, "findOne", () => { throw new Error("Unexpected database lookup"); });
+  const response = await status();
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.configured, false);
+  assert.equal(body.connected, false);
+  assert.match(body.message, /GOOGLE_CLIENT_ID/);
 });

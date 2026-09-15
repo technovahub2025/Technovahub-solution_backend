@@ -1,8 +1,26 @@
 import jwt from "jsonwebtoken";
-import { exchangeGoogleDriveCode, getGoogleDriveAuthorizationUrl } from "../config/googleDrive.js";
+import { exchangeGoogleDriveCode, getGoogleDriveAuthorizationUrl, getGoogleDriveConnectionStatus } from "../config/googleDrive.js";
 
 const getFrontendUrl = () =>
   (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
+
+export const googleDriveStatus = async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  if (!req.admin?._id) {
+    return res.status(401).json({ success: false, message: "Not authorized" });
+  }
+
+  try {
+    const status = await getGoogleDriveConnectionStatus();
+    return res.json({ success: true, ...status });
+  } catch (error) {
+    console.error("[google-drive] Status check failed");
+    return res.status(500).json({
+      success: false,
+      message: "Unable to check Google Drive connection",
+    });
+  }
+};
 
 export const connectGoogleDrive = (req, res) => {
   if (!req.admin?._id) {

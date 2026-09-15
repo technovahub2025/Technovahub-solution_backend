@@ -53,16 +53,12 @@ export const registerAdmin = async (req, res) => {
 
 export const loginAdmin = async (req, res) => {
   try {
-    console.log("Request Body:", req.body);
 
     const { userName, password } = req.body;
 
-    console.log("Username:", userName);
-    console.log("Password:", password);
 
     const admin = await Admin.findOne({ userName });
 
-    console.log("Admin Found:", admin);
 
     if (!admin) {
       return res.status(401).json({
@@ -72,7 +68,6 @@ export const loginAdmin = async (req, res) => {
 
     const isMatch = await bcrypt.compare(password, admin.password);
 
-    console.log("Password Match:", isMatch);
 
     if (!isMatch) {
       return res.status(401).json({

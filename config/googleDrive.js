@@ -90,6 +90,18 @@ const getRefreshToken = async () => {
   return token ? decrypt(token.encryptedRefreshToken) : null;
 };
 
+// Reports locally stored connection state; it does not make a Google API request.
+export const getGoogleDriveConnectionStatus = async () => {
+  try {
+    createOAuthClient();
+  } catch (error) {
+    if (error.statusCode !== 503) throw error;
+    return { configured: false, connected: false, message: error.message };
+  }
+
+  return { configured: true, connected: Boolean(await getRefreshToken()) };
+};
+
 export const exchangeGoogleDriveCode = async (code) => {
   const { tokens } = await createOAuthClient().getToken(code);
 
