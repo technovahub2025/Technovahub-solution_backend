@@ -10,7 +10,8 @@ export const connectGoogleDrive = (req, res) => {
     return res.status(401).json({ success: false, message: "Not authorized" });
   }
 
-  const state = jwt.sign(
+  try {
+    const state = jwt.sign(
     { adminId: req.admin._id.toString() },
     process.env.JWT_SECRET,
     { expiresIn: "10m" }
@@ -18,11 +19,18 @@ export const connectGoogleDrive = (req, res) => {
   const authUrl = getGoogleDriveAuthorizationUrl(state);
   console.log(`[google-drive] Authorization URL generated for admin=${req.admin._id}`);
 
-  return res.json({
-    success: true,
-    authUrl,
-    authorizationUrl: authUrl,
-  });
+    return res.json({
+      success: true,
+      authUrl,
+      authorizationUrl: authUrl,
+    });
+  } catch (error) {
+    console.error(`[google-drive] Connect failed: ${error.message}`);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.statusCode === 503 ? error.message : "Google Drive connection failed",
+    });
+  }
 };
 
 export const googleDriveCallback = async (req, res) => {

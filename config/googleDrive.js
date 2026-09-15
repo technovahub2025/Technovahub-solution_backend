@@ -7,21 +7,24 @@ const envFile = process.env.NODE_ENV === "production" ? ".env.production" : ".en
 dotenv.config({ path: envFile });
 dotenv.config();
 
-const clientId = process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_DRIVE_CLIENT_ID;
-const clientSecret = process.env.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_DRIVE_CLIENT_SECRET;
-const redirectUri = process.env.GOOGLE_REDIRECT_URI || process.env.GOOGLE_DRIVE_REDIRECT_URI;
-
-if (!clientId || !clientSecret || !redirectUri) {
-  throw new Error(
-    "Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI in the environment"
-  );
-}
-
-console.log(`[google-drive] OAuth config loaded: redirectUri=${redirectUri}`);
-
 const scopes = ["https://www.googleapis.com/auth/drive.file"];
 
-const createOAuthClient = () => new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+// Validate when Drive is used so missing OAuth settings cannot prevent API startup.
+const createOAuthClient = () => {
+  const clientId = process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_DRIVE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_DRIVE_CLIENT_SECRET;
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI || process.env.GOOGLE_DRIVE_REDIRECT_URI;
+
+  if (!clientId || !clientSecret || !redirectUri) {
+    const error = new Error(
+      "Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI in the backend environment"
+    );
+    error.statusCode = 503;
+    throw error;
+  }
+
+  return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+};
 
 const getEncryptionKey = () => {
   const key =
