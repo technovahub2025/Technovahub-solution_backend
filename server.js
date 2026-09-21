@@ -44,12 +44,12 @@ app.use((req, res, next) => {
 const allowedOrigins = [
   "http://localhost:5174",
   "http://localhost:5173",
-
+"https://technovahub-solution.vercel.app",
   
   "https://technova-hub-dynamic-website.vercel.app",
   "https://www.technovahub.in",
   "https://technovahub.in",
-  "https://technovahub-solution-is6vunddi-technovas-projects-37226de2.vercel.app/",
+  "https://technovahub-solution-is6vunddi-technovas-projects-37226de2.vercel.app",
   "technovahubfrontend-fldvp0knz-technovaservices-projects.vercel.app",
    "https://technovahubfrontend.vercel.app"
 
